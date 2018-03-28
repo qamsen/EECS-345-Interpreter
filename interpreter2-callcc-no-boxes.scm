@@ -1,7 +1,7 @@
 ; If you are using racket instead of scheme, uncomment these two lines, comment the (load "simpleParser.scm") and uncomment the (require "simpleParser.scm")
 ; #lang racket
 ; (require "simpleParser.scm")
-(load "simpleParser.scm")
+(load "functionParser.scm")
 
 
 ; The functions that start interpret-...  all return the current environment.
@@ -29,6 +29,7 @@
   (lambda (statement environment return break continue throw)
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
+      ((eq? 'function (statement-type statement)) (interpret-function statement environment))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
@@ -44,6 +45,11 @@
 (define interpret-return
   (lambda (statement environment return)
     (return (eval-expression (get-expr statement) environment))))
+
+; Adds the function binding to the environment.
+(define interpret-function
+  (lambda (statement environment)
+    (insert (get-function-name statement) (get-function-closure statement) environment)))
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
@@ -207,6 +213,10 @@
 ; these helper functions define the parts of the various statement types
 (define statement-type operator)
 (define get-expr operand1)
+(define get-function-name operand1)
+(define get-function-closure
+  (lambda (statement)
+    (cons (operand2 statement) (cons (operand3 statement) '()))))
 (define get-declare-var operand1)
 (define get-declare-value operand2)
 (define exists-declare-value? exists-operand2?)

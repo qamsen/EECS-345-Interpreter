@@ -13,9 +13,7 @@
     (scheme->language
      (call/cc
       (lambda (return)
-        (interpret-statement-list (parser file) (newenvironment) return
-                                  (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+        (interpret-statement-list (parser file) (newenvironment) return invalid-break invalid-continue invalid-throw))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
 (define interpret-statement-list
@@ -30,6 +28,7 @@
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'function (statement-type statement)) (interpret-function statement environment))
+      ((eq? 'funcall (statement-type statement)) (interpret-funcall statement environment))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
@@ -40,6 +39,16 @@
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
+
+; TODO:
+; + Lookup the value of the function (e.g. ((parameters)(body)))
+; + Push a new frame onto the environment that contains the parameters
+; + Pass the body of the function as the statement
+(interpret-funcall
+  (lambda (statement environment)
+    (call/cc
+      (lambda (return)
+        (interpret-statement-list statement environment return invalid-break invalid-continue invalid-throw)))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -153,6 +162,7 @@
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
       ((not (list? expr)) (lookup expr environment))
+      ((eq? 'funcall (operator expr)) (interpret-funcall expr environment)) ; interpret-funcall is not implemented yet
       (else (eval-operator expr environment)))))
 
 ; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
@@ -387,7 +397,21 @@
       ((eq? v #t) 'true)
       (else v))))
 
+;;;;;;;;;;;;;;;;;;;
+; ERROR FUNCTIONS ;
+;;;;;;;;;;;;;;;;;;;
 
+(define invalid-break
+  (lambda (env)
+    (myerror "Break used outside of loop")))
+
+(define invalid-continue
+  (lambda (env)
+    (myerror "Continue used outside of loop")))
+
+(define invalid-throw
+  (lambda (v env)
+    (myerror "Uncaught exception thrown")))
 
 ; Because the error function is not defined in R5RS scheme, I create my own:
 (define error-break (lambda (v) v))
@@ -400,4 +424,3 @@
                             str
                             (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
       (error-break (display (string-append str (makestr "" vals)))))))
-

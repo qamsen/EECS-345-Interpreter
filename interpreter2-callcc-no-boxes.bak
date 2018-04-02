@@ -58,8 +58,8 @@
 (define interpret-declare
   (lambda (statement environment throw)
     (if (exists-declare-value? statement)
-        (insert (get-declare-var statement) (box (eval-expression (get-declare-value statement) environment throw)) environment)
-        (insert (get-declare-var statement) (box 'novalue) environment))))
+        (insert (get-declare-var statement) (eval-expression (get-declare-value statement) environment throw) environment)
+        (insert (get-declare-var statement) 'novalue environment))))
 
 ; Updates the environment to add an new binding for a variable
 (define interpret-assign
@@ -98,7 +98,7 @@
 ; We use a continuation to throw the proper value. Because we are not using boxes, the environment/state must be thrown as well so any environment changes will be kept
 (define interpret-throw
   (lambda (statement environment throw)
-    (throw (box (eval-expression (get-expr statement) environment throw)) environment)))
+    (throw (eval-expression (get-expr statement) environment throw) environment)))
 
 ; Interpret a try-catch-finally block
 
@@ -155,7 +155,7 @@
       ((number? expr) expr)
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
-      ((not (list? expr)) (unbox (lookup expr environment)))
+      ((not (list? expr)) (lookup expr environment))
       ((eq? 'funcall (operator expr)) (eval-funcall expr environment throw)) ; interpret-funcall is not implemented yet
       (else (eval-operator expr environment throw)))))
 
@@ -261,7 +261,7 @@
   (lambda (parameters environment throw)
     (if (null? parameters)
          '()
-         (cons (box (eval-expression (car parameters) environment throw)) (parameter-values (cdr parameters) environment throw)))))
+         (cons (eval-expression (car parameters) environment throw) (parameter-values (cdr parameters) environment throw)))))
 
 (define function-frame
   (lambda (statement environment throw)
@@ -401,7 +401,7 @@
 (define update-in-frame-store
   (lambda (var val varlist vallist)
     (cond
-      ((eq? var (car varlist)) (begin (set-box! (car vallist) (scheme->language val)) vallist))
+      ((eq? var (car varlist)) (cons (scheme->language val) (cdr vallist)))
       (else (cons (car vallist) (update-in-frame-store var val (cdr varlist) (cdr vallist)))))))
 
 ; Returns the list of variables from a frame

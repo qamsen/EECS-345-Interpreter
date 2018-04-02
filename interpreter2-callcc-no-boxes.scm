@@ -3,7 +3,6 @@
 ; (require "simpleParser.scm")
 (load "functionParser.scm")
 
-
 ; The functions that start interpret-...  all return the current environment.
 ; The functions that start eval-...  all return a value
 
@@ -12,8 +11,6 @@
   (lambda (file)
     (scheme->language
      (eval-funcall main-method (interpret-statement-list (parser file) (newenvironment) invalid-return invalid-break invalid-continue invalid-throw) invalid-throw))))
-
-(define main-method '(funcall main))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
 (define interpret-statement-list
@@ -28,7 +25,7 @@
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'function (statement-type statement)) (interpret-function statement environment))
-      ((eq? 'funcall (statement-type statement)) (eval-funcall statement environment throw))
+      ((eq? 'funcall (statement-type statement)) (eval-funcall statement environment throw)) ; Needs to return a state
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment throw))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
@@ -40,42 +37,12 @@
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
-; TODO:
-; + Lookup the value of the function (e.g. ((parameters)(body)))
-; + Push a new frame onto the environment that contains the parameters
-; + Pass the body of the function as the statement
+; Evaluates a function and returns the value
 (define eval-funcall
   (lambda (statement environment throw)
     (call/cc
       (lambda (return)
         (interpret-statement-list (function-body statement environment) (push-function-frame statement environment throw) return invalid-break invalid-continue invalid-throw)))))
-
-(define function-body
-  (lambda (statement environment)
-    (cadr (lookup (cadr statement) environment))))
-
-(define parameter-names
-  (lambda (statement environment)
-    (car (lookup (cadr statement) environment))))
-
-(define parameter-values
-  (lambda (parameters environment throw)
-    (if (null? parameters)
-         '()
-         (cons (eval-expression (car parameters) environment throw) (parameter-values (cdr parameters) environment throw)))))
-
-(define parameters
-  (lambda (statement)
-    (cddr statement)))
-
-(define function-frame
-  (lambda (statement environment throw)
-    (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))))
-
-(define push-function-frame
-  (lambda (statement environment throw)
-    (cons (function-frame statement environment throw) environment)))
-          
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -140,16 +107,16 @@
 (define create-throw-catch-continuation
   (lambda (catch-statement environment return break continue throw jump finally-block)
     (cond
-      ((null? catch-statement) (lambda (ex env) (throw ex (interpret-block finally-block env return break continue throw)))) 
+      ((null? catch-statement) (lambda (ex env) (throw ex (interpret-block finally-block env return break continue throw))))
       ((not (eq? 'catch (statement-type catch-statement))) (myerror "Incorrect catch statement"))
       (else (lambda (ex env)
               (jump (interpret-block finally-block
-                                     (pop-frame (interpret-statement-list 
-                                                 (get-body catch-statement) 
+                                     (pop-frame (interpret-statement-list
+                                                 (get-body catch-statement)
                                                  (insert (catch-var catch-statement) ex (push-frame env))
-                                                 return 
-                                                 (lambda (env2) (break (pop-frame env2))) 
-                                                 (lambda (env2) (continue (pop-frame env2))) 
+                                                 return
+                                                 (lambda (env2) (break (pop-frame env2)))
+                                                 (lambda (env2) (continue (pop-frame env2)))
                                                  (lambda (v env2) (throw v (pop-frame env2)))))
                                      return break continue throw)))))))
 
@@ -272,6 +239,37 @@
   (lambda (catch-statement)
     (car (operand1 catch-statement))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;
+; Function helper methods
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define main-method '(funcall main))
+
+(define function-body
+  (lambda (statement environment)
+    (cadr (lookup (cadr statement) environment))))
+
+(define parameters
+  (lambda (statement)
+    (cddr statement)))
+
+(define parameter-names
+  (lambda (statement environment)
+    (car (lookup (cadr statement) environment))))
+
+(define parameter-values
+  (lambda (parameters environment throw)
+    (if (null? parameters)
+         '()
+         (cons (eval-expression (car parameters) environment throw) (parameter-values (cdr parameters) environment throw)))))
+
+(define function-frame
+  (lambda (statement environment throw)
+    (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))))
+
+(define push-function-frame
+  (lambda (statement environment throw)
+    (cons (function-frame statement environment throw) environment)))
 
 ;------------------------
 ; Environment/State Functions
@@ -321,7 +319,7 @@
 (define lookup
   (lambda (var environment)
     (lookup-variable var environment)))
-  
+
 ; A helper function that does the lookup.  Returns an error if the variable does not have a legal value
 (define lookup-variable
   (lambda (var environment)
@@ -411,8 +409,8 @@
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
 (define language->scheme
-  (lambda (v) 
-    (cond 
+  (lambda (v)
+    (cond
       ((eq? v 'false) #f)
       ((eq? v 'true) #t)
       (else v))))

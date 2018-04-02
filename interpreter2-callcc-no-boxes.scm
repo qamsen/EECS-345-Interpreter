@@ -265,7 +265,15 @@
 
 (define function-frame
   (lambda (statement environment throw)
-    (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))))
+    (if (matching-parameters? (parameter-names statement environment) (parameter-values (parameters statement) environment throw))
+      (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))
+      (myerror "Mismatched paramters"))))
+
+(define matching-parameters?
+  (lambda (names values)
+    (if (null? names)
+      (null? values)
+      (matching-parameters? (cdr names) (cdr values)))))
 
 (define push-function-frame
   (lambda (statement environment throw)

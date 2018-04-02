@@ -42,7 +42,7 @@
   (lambda (statement environment throw)
     (call/cc
       (lambda (return)
-        (interpret-statement-list (function-body statement environment) (push-function-frame statement environment throw) return invalid-break invalid-continue throw)))))
+        (interpret-statement-list (function-body statement environment) (push-function-frame statement (get-static-link (cadr statement) environment) throw) return invalid-break invalid-continue throw)))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -73,6 +73,7 @@
       ((eval-expression (get-condition statement) environment throw) (interpret-statement (get-then statement) environment return break continue throw))
       ((exists-else? statement) (interpret-statement (get-else statement) environment return break continue throw))
       (else environment))))
+
 
 ; Interprets a while loop.  We must create break and continue continuations for this loop
 (define interpret-while
@@ -268,6 +269,13 @@
     (if (matching-parameters? (parameter-names statement environment) (parameter-values (parameters statement) environment throw))
       (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))
       (myerror "Mismatched paramters"))))
+
+(define get-static-link
+  (lambda (name environment)
+    (cond
+      ((null? environment) (myerror "function not found: " name)) 
+      ((exists-in-list? name (caar environment)) environment)
+      (else (get-static-link name (pop-frame environment))))))
 
 (define matching-parameters?
   (lambda (names values)

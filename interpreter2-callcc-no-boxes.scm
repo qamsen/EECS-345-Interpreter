@@ -25,7 +25,7 @@
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return throw))
       ((eq? 'function (statement-type statement)) (interpret-function statement environment))
-      ((eq? 'funcall (statement-type statement)) (eval-funcall statement environment throw)) ; Needs to return a state
+      ((eq? 'funcall (statement-type statement)) (interpret-funcall (eval-funcall statement environment throw) environment))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment throw))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment throw))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
@@ -37,12 +37,17 @@
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
+; Executes the function then returns the state
+(define interpret-funcall
+  (lambda (function environment)
+    environment))
+
 ; Evaluates a function and returns the value
 (define eval-funcall
   (lambda (statement environment throw)
     (call/cc
       (lambda (return)
-        (interpret-statement-list (function-body statement environment) (push-function-frame statement (get-static-link (cadr statement) environment) throw) return invalid-break invalid-continue throw)))))
+        (interpret-statement-list (function-body statement environment) (push-function-frame statement environment throw) return invalid-break invalid-continue throw)))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -285,7 +290,7 @@
 
 (define push-function-frame
   (lambda (statement environment throw)
-    (cons (function-frame statement environment throw) environment)))
+    (cons (function-frame statement environment throw) (get-static-link (cadr statement) environment))))
 
 ;------------------------
 ; Environment/State Functions

@@ -42,7 +42,7 @@
   (lambda (statement environment throw)
     (call/cc
       (lambda (return)
-        (interpret-statement-list (function-body statement environment) (push-function-frame statement environment throw) return invalid-break invalid-continue invalid-throw)))))
+        (interpret-statement-list (function-body statement environment) (push-function-frame statement environment throw) return invalid-break invalid-continue throw)))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return

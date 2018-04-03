@@ -19,6 +19,8 @@
         environment
         (interpret-statement-list (cdr statement-list) (interpret-statement (car statement-list) environment return break continue throw) return break continue throw))))
 
+
+
 ; interpret a statement in the environment with continuations for return, break, continue, throw
 (define interpret-statement
   (lambda (statement environment return break continue throw)
@@ -34,13 +36,15 @@
       ((eq? 'break (statement-type statement)) (break environment))
       ((eq? 'begin (statement-type statement)) (interpret-block statement environment return break continue throw))
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
-      ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
+      ((eq? 'try (statement-type statement)) (begin (set-box! throwenv environment)(interpret-try statement environment return break continue throw)))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; Executes the function then returns the state
 (define interpret-funcall
   (lambda (function environment)
     environment))
+
+
 
 ; Evaluates a function and returns the value
 (define eval-funcall
@@ -104,7 +108,7 @@
 ; We use a continuation to throw the proper value. Because we are not using boxes, the environment/state must be thrown as well so any environment changes will be kept
 (define interpret-throw
   (lambda (statement environment throw)
-    (throw (box (eval-expression (get-expr statement) environment throw)) environment)))
+    (throw (box (eval-expression (get-expr statement) environment throw)) (push-frame (unbox throwenv)))))
 
 ; Interpret a try-catch-finally block
 
@@ -137,8 +141,7 @@
               (new-return (lambda (v) (begin (interpret-block finally-block environment return break continue throw) (return v))))
               (new-break (lambda (env) (break (interpret-block finally-block env return break continue throw))))
               (new-continue (lambda (env) (continue (interpret-block finally-block env return break continue throw))))
-              (new-throw (create-throw-catch-continuation (get-catch statement) environment return break continue throw jump finally-block)))
-         (interpret-block finally-block
+              (new-throw (create-throw-catch-continuation (get-catch statement) environment return break continue throw jump finally-block)))(interpret-block finally-block
                           (interpret-block try-block environment new-return new-break new-continue new-throw)
                           return break continue throw))))))
 
@@ -219,6 +222,8 @@
 (define exists-operand3?
   (lambda (statement)
     (not (null? (cdddr statement)))))
+
+(define throwenv (box '()))
 
 ; these helper functions define the parts of the various statement types
 (define statement-type operator)

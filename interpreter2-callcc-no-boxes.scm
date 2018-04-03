@@ -19,8 +19,6 @@
         environment
         (interpret-statement-list (cdr statement-list) (interpret-statement (car statement-list) environment return break continue throw) return break continue throw))))
 
-
-
 ; interpret a statement in the environment with continuations for return, break, continue, throw
 (define interpret-statement
   (lambda (statement environment return break continue throw)
@@ -43,8 +41,6 @@
 (define interpret-funcall
   (lambda (function environment)
     environment))
-
-
 
 ; Evaluates a function and returns the value
 (define eval-funcall
@@ -168,9 +164,6 @@
       ((eq? 'funcall (operator expr)) (eval-funcall expr environment throw)) ; interpret-funcall is not implemented yet
       (else (eval-operator expr environment throw)))))
 
-; Evaluate a binary (or unary) operator.  Although this is not dealing with side effects, I have the routine evaluate the left operand first and then
-; pass the result to eval-binary-op2 to evaluate the right operand.  This forces the operands to be evaluated in the proper order in case you choose
-; to add side effects to the interpreter
 (define eval-operator
   (lambda (expr environment throw)
     (cond
@@ -254,6 +247,7 @@
 ; Function helper methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Defines the main method call
 (define main-method '(funcall main))
 
 (define function-body
@@ -268,18 +262,21 @@
   (lambda (statement environment)
     (car (lookup (cadr statement) environment))))
 
+; Evaluates the parameters
 (define parameter-values
   (lambda (parameters environment throw)
     (if (null? parameters)
          '()
          (cons (box (eval-expression (car parameters) environment throw)) (parameter-values (cdr parameters) environment throw)))))
 
+; Creates frame where the names are parameter names and values are parameter values
 (define function-frame
   (lambda (statement environment throw)
     (if (matching-parameters? (parameter-names statement environment) (parameter-values (parameters statement) environment throw))
       (cons (parameter-names statement environment) (cons (parameter-values (parameters statement) environment throw) '()))
       (myerror "Mismatched paramters"))))
 
+; Gets the static link for a function
 (define get-static-link
   (lambda (name environment)
     (cond
@@ -287,12 +284,14 @@
       ((exists-in-list? name (caar environment)) environment)
       (else (get-static-link name (pop-frame environment))))))
 
+; Verifies that the parameter count matches the function call
 (define matching-parameters?
   (lambda (names values)
     (if (null? names)
       (null? values)
       (matching-parameters? (cdr names) (cdr values)))))
 
+; Returns the function frame and the environment of the static link
 (define push-function-frame
   (lambda (statement environment throw)
     (cons (function-frame statement environment throw) (get-static-link (cadr statement) environment))))
